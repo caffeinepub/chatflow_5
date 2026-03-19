@@ -11,6 +11,7 @@ import { ChatList } from "./ChatList";
 import { ChatWindow } from "./ChatWindow";
 import { ContactInfo } from "./ContactInfo";
 import { IconRail } from "./IconRail";
+import { ProfileSettings } from "./ProfileSettings";
 
 interface ChatLayoutProps {
   username: string;
@@ -18,6 +19,15 @@ interface ChatLayoutProps {
 }
 
 type MobileView = "list" | "chat";
+
+const AVATAR_COLORS = [
+  "oklch(0.55 0.22 230)",
+  "oklch(0.55 0.22 280)",
+  "oklch(0.55 0.22 160)",
+  "oklch(0.55 0.22 30)",
+  "oklch(0.55 0.22 320)",
+  "oklch(0.55 0.22 60)",
+];
 
 export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("chats");
@@ -44,7 +54,6 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
 
   function handleSelectContact(id: string) {
     setSelectedContactId(id);
-    // Mark incoming messages as read
     setMessages((prev) =>
       prev.map((m) =>
         m.contactId === id && !m.isOutgoing
@@ -62,6 +71,27 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
       );
     }
     setMobileView("chat");
+    setActiveTab("chats");
+  }
+
+  function handleAddUser(newUsername: string) {
+    const color = AVATAR_COLORS[contacts.length % AVATAR_COLORS.length];
+    const newContact: Contact = {
+      id: `user-${Date.now()}`,
+      name: newUsername,
+      initials: newUsername.slice(0, 2).toUpperCase(),
+      avatarColor: color,
+      lastMessage: "",
+      lastMessageTime: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      unreadCount: 0,
+      isOnline: false,
+      bio: "",
+      mediaThumbColors: [],
+    };
+    setContacts((prev) => [newContact, ...prev]);
   }
 
   function handleSendMessage(text: string) {
@@ -225,7 +255,6 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
     setGroups((prev) => [newGroup, ...prev]);
   }
 
-  // Build a unified contact/group for ChatWindow header
   const windowContact =
     selectedContact ??
     (selectedGroup
@@ -242,6 +271,8 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
           mediaThumbColors: [],
         } satisfies Contact)
       : null);
+
+  const showSettings = activeTab === "settings";
 
   return (
     <div className="h-screen flex flex-col relative overflow-hidden md:items-center md:justify-center md:p-4">
@@ -293,7 +324,11 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
 
           <div className="flex-1 text-center min-w-0">
             <span className="text-sm font-semibold text-muted-foreground truncate block">
-              {windowContact ? windowContact.name : "Chat Window"}
+              {showSettings
+                ? "Profile Settings"
+                : windowContact
+                  ? windowContact.name
+                  : "Chat Window"}
             </span>
           </div>
 
@@ -361,10 +396,10 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
             />
           </div>
 
-          {/* Chat List */}
+          {/* Chat List — always visible on desktop; hidden on mobile when in chat view */}
           <div
             className={`${
-              mobileView === "list" ? "flex" : "hidden"
+              mobileView === "list" && !showSettings ? "flex" : "hidden"
             } md:flex flex-col w-full md:w-72 flex-shrink-0`}
           >
             <ChatList
@@ -373,30 +408,40 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
               selectedContactId={selectedContactId}
               onSelectContact={handleSelectContact}
               onCreateGroup={handleCreateGroup}
+              currentUsername={username}
+              onAddUser={handleAddUser}
             />
           </div>
 
-          {/* Chat Window */}
-          <div
-            className={`${
-              mobileView === "chat" ? "flex" : "hidden"
-            } md:flex flex-col flex-1 min-w-0`}
-          >
-            <ChatWindow
-              contact={windowContact}
-              messages={chatMessages}
-              onSendMessage={handleSendMessage}
-              onSendVoice={handleSendVoice}
-              onSendFile={handleSendFile}
-              onReactToMessage={handleReactToMessage}
-              onBack={() => setMobileView("list")}
-            />
-          </div>
+          {/* Right panel: Settings or Chat Window */}
+          {showSettings ? (
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+              <ProfileSettings username={username} />
+            </div>
+          ) : (
+            <div
+              className={`${
+                mobileView === "chat" ? "flex" : "hidden"
+              } md:flex flex-col flex-1 min-w-0`}
+            >
+              <ChatWindow
+                contact={windowContact}
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                onSendVoice={handleSendVoice}
+                onSendFile={handleSendFile}
+                onReactToMessage={handleReactToMessage}
+                onBack={() => setMobileView("list")}
+              />
+            </div>
+          )}
 
           {/* Contact Info — large screens only */}
-          <div className="hidden lg:flex">
-            <ContactInfo contact={selectedContact} />
-          </div>
+          {!showSettings && (
+            <div className="hidden lg:flex">
+              <ContactInfo contact={selectedContact} />
+            </div>
+          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ export interface Contact {
   name: string;
   initials: string;
   avatarColor: string;
+  avatarUrl?: string;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;

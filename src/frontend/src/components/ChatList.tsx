@@ -1,7 +1,7 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Users } from "lucide-react";
+import { Search, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import type { Contact, Group } from "../types/chat";
 import { CreateGroupModal } from "./CreateGroupModal";
@@ -12,6 +12,8 @@ interface ChatListProps {
   selectedContactId: string | null;
   onSelectContact: (id: string) => void;
   onCreateGroup: (name: string, memberIds: string[]) => void;
+  currentUsername: string;
+  onAddUser: (username: string) => void;
 }
 
 type ListItem =
@@ -24,6 +26,8 @@ export function ChatList({
   selectedContactId,
   onSelectContact,
   onCreateGroup,
+  currentUsername,
+  onAddUser,
 }: ChatListProps) {
   const [search, setSearch] = useState("");
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -39,6 +43,28 @@ export function ChatList({
     const q = search.toLowerCase();
     return name.includes(q) || msg.includes(q);
   });
+
+  // Search registered users from localStorage
+  const registeredUsers = (() => {
+    if (!search.trim()) return [];
+    try {
+      const raw = localStorage.getItem("chatflow_accounts");
+      if (!raw) return [];
+      const accounts: Record<string, string> = JSON.parse(raw);
+      const existingNames = new Set([
+        currentUsername.toLowerCase(),
+        ...contacts.map((c) => c.name.toLowerCase()),
+      ]);
+      return Object.keys(accounts).filter(
+        (u) =>
+          u !== currentUsername &&
+          !existingNames.has(u.toLowerCase()) &&
+          u.toLowerCase().includes(search.toLowerCase()),
+      );
+    } catch {
+      return [];
+    }
+  })();
 
   return (
     <>
@@ -75,7 +101,7 @@ export function ChatList({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search chats…"
+              placeholder="Search chats or find people…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm rounded-xl glass-input h-9"
@@ -87,7 +113,7 @@ export function ChatList({
         {/* List */}
         <ScrollArea className="flex-1 chat-scroll">
           <div className="py-1">
-            {filtered.length === 0 && (
+            {filtered.length === 0 && registeredUsers.length === 0 && (
               <div
                 className="text-center text-sm text-muted-foreground py-8"
                 data-ocid="chat.empty_state"
@@ -124,6 +150,12 @@ export function ChatList({
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <Avatar className="w-11 h-11">
+                      {!isGroup && contact?.avatarUrl && (
+                        <AvatarImage
+                          src={contact.avatarUrl}
+                          alt={contact.name}
+                        />
+                      )}
                       <AvatarFallback
                         className="text-white text-sm font-semibold"
                         style={{
@@ -193,6 +225,61 @@ export function ChatList({
                 </button>
               );
             })}
+
+            {/* People section — registered users not yet in contacts */}
+            {registeredUsers.length > 0 && (
+              <div className="mt-2">
+                <div className="px-4 py-1.5">
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: "oklch(0.65 0.25 240)" }}
+                  >
+                    People
+                  </span>
+                </div>
+                {registeredUsers.map((uname, idx) => (
+                  <div
+                    key={uname}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.05] transition-all duration-150"
+                    data-ocid={`people.item.${idx + 1}`}
+                  >
+                    <Avatar className="w-11 h-11 flex-shrink-0">
+                      <AvatarFallback
+                        className="text-white text-sm font-semibold"
+                        style={{ background: "oklch(0.55 0.18 200)" }}
+                      >
+                        {uname.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {uname}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Registered user
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddUser(uname);
+                        setSearch("");
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0"
+                      style={{
+                        background: "oklch(0.65 0.25 240 / 0.15)",
+                        border: "1px solid oklch(0.65 0.25 240 / 0.4)",
+                        color: "oklch(0.75 0.18 240)",
+                      }}
+                      data-ocid={`people.button.${idx + 1}`}
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </ScrollArea>
       </div>
