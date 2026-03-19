@@ -6,7 +6,7 @@ import {
   contacts as initialContacts,
   messages as initialMessages,
 } from "../data/mockData";
-import type { ActiveTab, Contact, Message } from "../types/chat";
+import type { ActiveTab, Contact, Group, Message } from "../types/chat";
 import { ChatList } from "./ChatList";
 import { ChatWindow } from "./ChatWindow";
 import { ContactInfo } from "./ContactInfo";
@@ -17,27 +17,51 @@ interface ChatLayoutProps {
   onLogout: () => void;
 }
 
+type MobileView = "list" | "chat";
+
 export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("chats");
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     "1",
   );
+  const [mobileView, setMobileView] = useState<MobileView>("list");
 
-  const selectedContact =
-    contacts.find((c) => c.id === selectedContactId) ?? null;
+  const isGroup = selectedContactId?.startsWith("group-") ?? false;
+  const selectedContact = isGroup
+    ? null
+    : (contacts.find((c) => c.id === selectedContactId) ?? null);
+  const selectedGroup = isGroup
+    ? (groups.find((g) => g.id === selectedContactId) ?? null)
+    : null;
+
   const chatMessages = messages.filter(
     (m) => m.contactId === selectedContactId,
   );
-
   const totalUnread = contacts.reduce((sum, c) => sum + c.unreadCount, 0);
 
   function handleSelectContact(id: string) {
     setSelectedContactId(id);
-    setContacts((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)),
+    // Mark incoming messages as read
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.contactId === id && !m.isOutgoing
+          ? { ...m, readStatus: "read" as const }
+          : m,
+      ),
     );
+    if (id.startsWith("group-")) {
+      setGroups((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, unreadCount: 0 } : g)),
+      );
+    } else {
+      setContacts((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c)),
+      );
+    }
+    setMobileView("chat");
   }
 
   function handleSendMessage(text: string) {
@@ -51,20 +75,177 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
         minute: "2-digit",
       }),
       isOutgoing: true,
+      type: "text",
+      readStatus: "sent",
     };
     setMessages((prev) => [...prev, newMsg]);
-    setContacts((prev) =>
-      prev.map((c) =>
-        c.id === selectedContactId
-          ? { ...c, lastMessage: text, lastMessageTime: newMsg.timestamp }
-          : c,
-      ),
+    if (isGroup) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === selectedContactId
+            ? { ...g, lastMessage: text, lastMessageTime: newMsg.timestamp }
+            : g,
+        ),
+      );
+    } else {
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === selectedContactId
+            ? { ...c, lastMessage: text, lastMessageTime: newMsg.timestamp }
+            : c,
+        ),
+      );
+    }
+  }
+
+  function handleSendVoice(audioUrl: string, duration: number) {
+    if (!selectedContactId) return;
+    const newMsg: Message = {
+      id: `msg-${Date.now()}`,
+      contactId: selectedContactId,
+      text: "",
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      isOutgoing: true,
+      type: "voice",
+      readStatus: "sent",
+      audioUrl,
+      audioDuration: duration,
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    const label = `🎙 Voice message (${duration}s)`;
+    if (isGroup) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === selectedContactId
+            ? { ...g, lastMessage: label, lastMessageTime: newMsg.timestamp }
+            : g,
+        ),
+      );
+    } else {
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === selectedContactId
+            ? { ...c, lastMessage: label, lastMessageTime: newMsg.timestamp }
+            : c,
+        ),
+      );
+    }
+  }
+
+  function handleSendFile(file: File) {
+    if (!selectedContactId) return;
+    const sizeKb = Math.round(file.size / 1024);
+    const sizeLabel =
+      sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+    const ext = file.name.split(".").pop()?.toUpperCase() ?? "FILE";
+    const newMsg: Message = {
+      id: `msg-${Date.now()}`,
+      contactId: selectedContactId,
+      text: "",
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      isOutgoing: true,
+      type: "file",
+      readStatus: "sent",
+      fileAttachment: { name: file.name, size: sizeLabel, fileType: ext },
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    const label = `📎 ${file.name}`;
+    if (isGroup) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === selectedContactId
+            ? { ...g, lastMessage: label, lastMessageTime: newMsg.timestamp }
+            : g,
+        ),
+      );
+    } else {
+      setContacts((prev) =>
+        prev.map((c) =>
+          c.id === selectedContactId
+            ? { ...c, lastMessage: label, lastMessageTime: newMsg.timestamp }
+            : c,
+        ),
+      );
+    }
+  }
+
+  function handleReactToMessage(messageId: string, emoji: string) {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const existing = m.reactions ?? [];
+        const idx = existing.findIndex((r) => r.emoji === emoji);
+        if (idx === -1) {
+          return {
+            ...m,
+            reactions: [...existing, { emoji, count: 1, reactedByMe: true }],
+          };
+        }
+        const updated = existing
+          .map((r, i) => {
+            if (i !== idx) return r;
+            const toggled = !r.reactedByMe;
+            return {
+              ...r,
+              reactedByMe: toggled,
+              count: toggled ? r.count + 1 : Math.max(0, r.count - 1),
+            };
+          })
+          .filter((r) => r.count > 0);
+        return { ...m, reactions: updated };
+      }),
     );
   }
 
+  function handleCreateGroup(name: string, memberIds: string[]) {
+    const initials = name
+      .split(" ")
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("");
+    const newGroup: Group = {
+      id: `group-${Date.now()}`,
+      name,
+      initials,
+      avatarColor: "oklch(0.6 0.22 290)",
+      members: memberIds,
+      lastMessage: "Group created",
+      lastMessageTime: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      unreadCount: 0,
+    };
+    setGroups((prev) => [newGroup, ...prev]);
+  }
+
+  // Build a unified contact/group for ChatWindow header
+  const windowContact =
+    selectedContact ??
+    (selectedGroup
+      ? ({
+          id: selectedGroup.id,
+          name: selectedGroup.name,
+          initials: selectedGroup.initials,
+          avatarColor: selectedGroup.avatarColor,
+          isOnline: false,
+          bio: `${selectedGroup.members.length} members`,
+          lastMessage: selectedGroup.lastMessage,
+          lastMessageTime: selectedGroup.lastMessageTime,
+          unreadCount: selectedGroup.unreadCount,
+          mediaThumbColors: [],
+        } satisfies Contact)
+      : null);
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Radial neon glow behind container */}
+    <div className="h-screen flex flex-col relative overflow-hidden md:items-center md:justify-center md:p-4">
+      {/* Radial neon glow */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -75,10 +256,9 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
 
       {/* Main app container */}
       <div
-        className="w-full max-w-6xl rounded-2xl overflow-hidden flex flex-col animate-neon-pulse"
+        className="w-full flex flex-col flex-1 overflow-hidden md:rounded-2xl md:max-w-6xl md:animate-neon-pulse"
         style={{
-          height: "calc(100vh - 2rem)",
-          maxHeight: "800px",
+          height: "100%",
           background: "rgba(255,255,255,0.04)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
@@ -89,15 +269,14 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
       >
         {/* App header */}
         <div
-          className="flex items-center gap-4 px-5 py-3 flex-shrink-0"
+          className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 sm:gap-4 sm:px-5 sm:py-3"
           style={{
             background: "rgba(255,255,255,0.04)",
             backdropFilter: "blur(16px)",
             borderBottom: "1px solid rgba(255,255,255,0.07)",
           }}
         >
-          {/* Brand */}
-          <div className="flex items-center gap-2 min-w-[120px]">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center"
               style={{
@@ -112,23 +291,21 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
             </span>
           </div>
 
-          {/* Center label */}
-          <div className="flex-1 text-center">
-            <span className="text-sm font-semibold text-muted-foreground">
-              {selectedContact ? selectedContact.name : "Chat Window"}
+          <div className="flex-1 text-center min-w-0">
+            <span className="text-sm font-semibold text-muted-foreground truncate block">
+              {windowContact ? windowContact.name : "Chat Window"}
             </span>
           </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-2 min-w-[120px] justify-end">
+          <div className="flex items-center gap-1 flex-shrink-0 sm:gap-2">
             <button
               type="button"
-              className="p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+              className="hidden sm:flex p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
               aria-label="Search"
             >
               <Search className="w-4 h-4" />
             </button>
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <button
                 type="button"
                 className="p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
@@ -143,7 +320,7 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
               )}
             </div>
             <div
-              className="flex items-center gap-2 pl-2"
+              className="flex items-center gap-1.5 pl-2 sm:gap-2"
               style={{ borderLeft: "1px solid rgba(255,255,255,0.1)" }}
             >
               <Avatar className="w-7 h-7">
@@ -174,31 +351,57 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
         </div>
 
         {/* Main content */}
-        <div
-          className="flex min-h-0 flex-1"
-          style={{ height: "calc(100% - 53px)" }}
-        >
-          <IconRail
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            username={username}
-          />
-          <ChatList
-            contacts={contacts}
-            selectedContactId={selectedContactId}
-            onSelectContact={handleSelectContact}
-          />
-          <ChatWindow
-            contact={selectedContact}
-            messages={chatMessages}
-            onSendMessage={handleSendMessage}
-          />
-          <ContactInfo contact={selectedContact} />
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* Icon Rail — desktop only */}
+          <div className="hidden md:flex">
+            <IconRail
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              username={username}
+            />
+          </div>
+
+          {/* Chat List */}
+          <div
+            className={`${
+              mobileView === "list" ? "flex" : "hidden"
+            } md:flex flex-col w-full md:w-72 flex-shrink-0`}
+          >
+            <ChatList
+              contacts={contacts}
+              groups={groups}
+              selectedContactId={selectedContactId}
+              onSelectContact={handleSelectContact}
+              onCreateGroup={handleCreateGroup}
+            />
+          </div>
+
+          {/* Chat Window */}
+          <div
+            className={`${
+              mobileView === "chat" ? "flex" : "hidden"
+            } md:flex flex-col flex-1 min-w-0`}
+          >
+            <ChatWindow
+              contact={windowContact}
+              messages={chatMessages}
+              onSendMessage={handleSendMessage}
+              onSendVoice={handleSendVoice}
+              onSendFile={handleSendFile}
+              onReactToMessage={handleReactToMessage}
+              onBack={() => setMobileView("list")}
+            />
+          </div>
+
+          {/* Contact Info — large screens only */}
+          <div className="hidden lg:flex">
+            <ContactInfo contact={selectedContact} />
+          </div>
         </div>
       </div>
 
       {/* Footer */}
-      <p className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
+      <p className="hidden md:block absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
         © {new Date().getFullYear()}. Built with ❤️ using{" "}
         <a
           href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}

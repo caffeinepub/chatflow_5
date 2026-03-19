@@ -5,6 +5,26 @@ import { MessageCircle } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 
+const ACCOUNTS_KEY = "chatflow_accounts";
+
+type Accounts = Record<string, string>; // username -> password
+
+function getAccounts(): Accounts {
+  try {
+    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveAccount(username: string, password: string) {
+  const accounts = getAccounts();
+  accounts[username] = password;
+  try {
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  } catch {}
+}
+
 interface LoginPageProps {
   onLogin: (username: string) => void;
 }
@@ -12,6 +32,7 @@ interface LoginPageProps {
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,8 +42,27 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       setError("Please enter both username and password.");
       return;
     }
-    setError("");
-    onLogin(username.trim());
+    const accounts = getAccounts();
+    if (isRegister) {
+      if (accounts[username.trim()]) {
+        setError("Username already taken. Please choose another.");
+        return;
+      }
+      saveAccount(username.trim(), password);
+      setError("");
+      onLogin(username.trim());
+    } else {
+      if (!accounts[username.trim()]) {
+        setError("No account found. Please register first.");
+        return;
+      }
+      if (accounts[username.trim()] !== password) {
+        setError("Incorrect password.");
+        return;
+      }
+      setError("");
+      onLogin(username.trim());
+    }
   }
 
   return (
@@ -35,7 +75,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             "radial-gradient(ellipse 80% 60% at 50% 50%, oklch(0.65 0.25 240 / 0.08) 0%, transparent 70%)",
         }}
       />
-      {/* Corner glow accents */}
       <div
         className="absolute top-0 left-0 w-96 h-96 pointer-events-none"
         style={{
@@ -100,6 +139,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   id="fullname"
                   type="text"
                   placeholder="Your full name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
                   className="glass-input rounded-xl h-11"
                   data-ocid="login.input"
                 />

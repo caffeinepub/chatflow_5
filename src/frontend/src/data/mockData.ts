@@ -125,6 +125,8 @@ export const messages: Message[] = [
     text: "Hey! How's your day going?",
     timestamp: "10:30 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m2",
@@ -132,6 +134,7 @@ export const messages: Message[] = [
     text: "Pretty good! Just finished a big design project 🎨",
     timestamp: "10:31 AM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m3",
@@ -139,6 +142,8 @@ export const messages: Message[] = [
     text: "Oh nice! What kind of project was it?",
     timestamp: "10:33 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m4",
@@ -146,6 +151,7 @@ export const messages: Message[] = [
     text: "A full rebrand for a tech startup — new logo, color system, component library. Took about 3 weeks!",
     timestamp: "10:35 AM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m5",
@@ -153,6 +159,8 @@ export const messages: Message[] = [
     text: "Wow that's a big scope. Are you happy with how it turned out?",
     timestamp: "10:38 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m6",
@@ -160,6 +168,7 @@ export const messages: Message[] = [
     text: "That sounds amazing! Can't wait 🎉",
     timestamp: "10:42 AM",
     isOutgoing: false,
+    type: "text",
   },
 
   // Alex Martinez - id 2
@@ -169,6 +178,8 @@ export const messages: Message[] = [
     text: "Hey Alex, did you fix the auth bug?",
     timestamp: "9:00 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m8",
@@ -176,6 +187,7 @@ export const messages: Message[] = [
     text: "Yeah finally! It was a race condition in the token refresh logic.",
     timestamp: "9:05 AM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m9",
@@ -183,6 +195,8 @@ export const messages: Message[] = [
     text: "Classic. I've been bit by that before too 😅",
     timestamp: "9:08 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m10",
@@ -190,6 +204,7 @@ export const messages: Message[] = [
     text: "Just pushed the new build. Check it out!",
     timestamp: "9:15 AM",
     isOutgoing: false,
+    type: "text",
   },
 
   // Emma Wilson - id 3
@@ -199,6 +214,8 @@ export const messages: Message[] = [
     text: "Emma! It's been so long 😊",
     timestamp: "Yesterday, 6:00 PM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m12",
@@ -206,6 +223,7 @@ export const messages: Message[] = [
     text: "I know right! Miss hanging out with you guys.",
     timestamp: "Yesterday, 6:15 PM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m13",
@@ -213,6 +231,8 @@ export const messages: Message[] = [
     text: "Same here! We should plan something soon.",
     timestamp: "Yesterday, 6:18 PM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m14",
@@ -220,6 +240,7 @@ export const messages: Message[] = [
     text: "Let's catch up this weekend?",
     timestamp: "Yesterday, 6:20 PM",
     isOutgoing: false,
+    type: "text",
   },
 
   // David Chen - id 4
@@ -229,6 +250,8 @@ export const messages: Message[] = [
     text: "David, can we move tomorrow's meeting?",
     timestamp: "Yesterday, 2:00 PM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m16",
@@ -236,6 +259,7 @@ export const messages: Message[] = [
     text: "Sure, what time works for you?",
     timestamp: "Yesterday, 2:05 PM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m17",
@@ -243,6 +267,8 @@ export const messages: Message[] = [
     text: "How about 3 PM?",
     timestamp: "Yesterday, 2:08 PM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m18",
@@ -250,6 +276,7 @@ export const messages: Message[] = [
     text: "The meeting is at 3 PM tomorrow.",
     timestamp: "Yesterday, 2:10 PM",
     isOutgoing: false,
+    type: "text",
   },
 
   // Priya Sharma - id 5
@@ -259,6 +286,8 @@ export const messages: Message[] = [
     text: "Priya, found this great article on UX research methods!",
     timestamp: "Mon, 11:00 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m20",
@@ -266,6 +295,7 @@ export const messages: Message[] = [
     text: "Oh cool, can you share the link?",
     timestamp: "Mon, 11:05 AM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m21",
@@ -273,6 +303,8 @@ export const messages: Message[] = [
     text: "https://uxresearch.example.com/methods",
     timestamp: "Mon, 11:06 AM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m22",
@@ -280,6 +312,7 @@ export const messages: Message[] = [
     text: "Thanks for sharing the article!",
     timestamp: "Mon, 11:30 AM",
     isOutgoing: false,
+    type: "text",
   },
 
   // James Thompson - id 6
@@ -289,6 +322,8 @@ export const messages: Message[] = [
     text: "James did you see that meme I sent?",
     timestamp: "Sun, 4:00 PM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m24",
@@ -296,6 +331,7 @@ export const messages: Message[] = [
     text: "YES 💀 where do you even find these?",
     timestamp: "Sun, 4:10 PM",
     isOutgoing: false,
+    type: "text",
   },
   {
     id: "m25",
@@ -303,6 +339,8 @@ export const messages: Message[] = [
     text: "Deep internet rabbit holes at 2am 😂",
     timestamp: "Sun, 4:12 PM",
     isOutgoing: true,
+    type: "text",
+    readStatus: "read",
   },
   {
     id: "m26",
@@ -310,5 +348,6 @@ export const messages: Message[] = [
     text: "Haha that's hilarious! 😂",
     timestamp: "Sun, 4:15 PM",
     isOutgoing: false,
+    type: "text",
   },
 ];
