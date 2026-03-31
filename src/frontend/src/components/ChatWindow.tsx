@@ -90,14 +90,20 @@ function VoiceBubble({
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
         style={{
           background: isOutgoing
-            ? "rgba(255,255,255,0.2)"
-            : "oklch(0.65 0.25 240 / 0.3)",
+            ? "rgba(255,255,255,0.25)"
+            : "oklch(0.52 0.22 240 / 0.2)",
         }}
       >
         {playing ? (
-          <Pause className="w-4 h-4 text-white" />
+          <Pause
+            className="w-4 h-4"
+            style={{ color: isOutgoing ? "white" : "oklch(0.52 0.22 240)" }}
+          />
         ) : (
-          <Play className="w-4 h-4 text-white" />
+          <Play
+            className="w-4 h-4"
+            style={{ color: isOutgoing ? "white" : "oklch(0.52 0.22 240)" }}
+          />
         )}
       </button>
       <div className="flex-1 flex flex-col gap-1">
@@ -112,42 +118,66 @@ function VoiceBubble({
                   progress > (i / WAVEFORM_BARS.length) * 100
                     ? isOutgoing
                       ? "rgba(255,255,255,0.9)"
-                      : "oklch(0.65 0.25 240)"
-                    : "rgba(255,255,255,0.25)",
+                      : "oklch(0.52 0.22 240)"
+                    : isOutgoing
+                      ? "rgba(255,255,255,0.3)"
+                      : "#444",
               }}
             />
           ))}
         </div>
-        <span className="text-[10px] opacity-60">
+        <span
+          className="text-[10px]"
+          style={{
+            opacity: isOutgoing ? 0.7 : 0.5,
+            color: isOutgoing ? "white" : "#aaa",
+          }}
+        >
           {formatDuration(msg.audioDuration ?? 0)}
         </span>
       </div>
-      <Mic className="w-3.5 h-3.5 opacity-50 flex-shrink-0" />
+      <Mic
+        className="w-3.5 h-3.5 flex-shrink-0"
+        style={{ opacity: 0.4, color: isOutgoing ? "white" : "#888" }}
+      />
     </div>
   );
 }
 
-function FileBubble({ msg }: { msg: Message }) {
+function FileBubble({
+  msg,
+  isOutgoing,
+}: { msg: Message; isOutgoing: boolean }) {
   const ext = msg.fileAttachment?.fileType ?? "FILE";
   return (
     <div className="flex items-center gap-3 min-w-[180px] max-w-[240px] px-1 py-0.5">
       <div
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{
-          background: "oklch(0.65 0.25 240 / 0.25)",
-          border: "1px solid oklch(0.65 0.25 240 / 0.4)",
+          background: isOutgoing
+            ? "rgba(255,255,255,0.2)"
+            : "rgba(59,130,246,0.2)",
+          border: isOutgoing
+            ? "1px solid rgba(255,255,255,0.3)"
+            : "1px solid rgba(59,130,246,0.35)",
         }}
       >
         <FileText
           className="w-5 h-5"
-          style={{ color: "oklch(0.75 0.2 240)" }}
+          style={{ color: isOutgoing ? "white" : "oklch(0.52 0.22 240)" }}
         />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate leading-tight">
+        <p
+          className="text-sm font-medium truncate leading-tight"
+          style={{ color: isOutgoing ? "white" : "#e2e8f0" }}
+        >
           {msg.fileAttachment?.name}
         </p>
-        <p className="text-[11px] opacity-50">
+        <p
+          className="text-[11px]"
+          style={{ opacity: 0.6, color: isOutgoing ? "white" : "#94a3b8" }}
+        >
           {ext} · {msg.fileAttachment?.size}
         </p>
       </div>
@@ -268,26 +298,25 @@ export function ChatWindow({
     return (
       <div
         className="flex-1 flex flex-col items-center justify-center gap-4"
-        style={{ background: "rgba(255,255,255,0.015)" }}
+        style={{ background: "#0a0a0a" }}
       >
         <div
           className="w-20 h-20 rounded-3xl flex items-center justify-center"
           style={{
-            background: "oklch(0.65 0.25 240 / 0.12)",
-            border: "1px solid oklch(0.65 0.25 240 / 0.3)",
-            boxShadow: "0 0 20px oklch(0.65 0.25 240 / 0.15)",
+            background: "rgba(59,130,246,0.15)",
+            border: "1px solid rgba(59,130,246,0.3)",
           }}
         >
           <MessageCircle
             className="w-10 h-10"
-            style={{ color: "oklch(0.65 0.25 240)" }}
+            style={{ color: "oklch(0.52 0.22 240)" }}
           />
         </div>
         <div className="text-center">
-          <p className="text-base font-semibold text-foreground">
+          <p className="text-base font-semibold text-gray-200">
             Select a conversation
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             Choose from your chats to start messaging
           </p>
         </div>
@@ -298,23 +327,18 @@ export function ChatWindow({
   return (
     <div
       className="flex-1 flex flex-col min-w-0 h-full"
-      style={{ background: "rgba(255,255,255,0.015)" }}
+      style={{ background: "#0a0a0a" }}
     >
       {/* Chat header */}
       <div
         className="flex items-center gap-2 px-3 py-3 flex-shrink-0 sm:gap-3 sm:px-5 sm:py-3.5"
-        style={{
-          background: "rgba(255,255,255,0.04)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
-        }}
+        style={{ background: "#111", borderBottom: "1px solid #2a2a2a" }}
       >
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="md:hidden p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors mr-1 flex-shrink-0"
+            className="md:hidden p-2 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors mr-1 flex-shrink-0"
             aria-label="Back"
             data-ocid="chat.button"
           >
@@ -335,15 +359,14 @@ export function ChatWindow({
             <span
               className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full"
               style={{
-                background: "oklch(0.72 0.2 142)",
-                boxShadow: "0 0 5px oklch(0.72 0.2 142 / 0.9)",
-                border: "2px solid oklch(0.08 0.02 258)",
+                background: "oklch(0.62 0.2 142)",
+                border: "2px solid #111",
               }}
             />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-foreground truncate">
+          <p className="text-sm font-bold text-white truncate">
             {contact.name}
           </p>
           <div className="flex items-center gap-1.5">
@@ -351,20 +374,17 @@ export function ChatWindow({
               <>
                 <span
                   className="w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background: "oklch(0.72 0.2 142)",
-                    boxShadow: "0 0 4px oklch(0.72 0.2 142 / 0.9)",
-                  }}
+                  style={{ background: "oklch(0.62 0.2 142)" }}
                 />
                 <span
                   className="text-xs font-medium"
-                  style={{ color: "oklch(0.72 0.2 142)" }}
+                  style={{ color: "oklch(0.50 0.18 142)" }}
                 >
                   Online
                 </span>
               </>
             ) : (
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-gray-500">
                 {contact.bio?.includes("members") ? contact.bio : "Offline"}
               </span>
             )}
@@ -374,28 +394,28 @@ export function ChatWindow({
         <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
-            className="hidden sm:flex p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+            className="hidden sm:flex p-2 rounded-xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
             aria-label="Search in chat"
           >
             <Search className="w-4 h-4" />
           </button>
           <button
             type="button"
-            className="hidden sm:flex p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+            className="hidden sm:flex p-2 rounded-xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
             aria-label="Voice call"
           >
             <Phone className="w-4 h-4" />
           </button>
           <button
             type="button"
-            className="hidden sm:flex p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+            className="hidden sm:flex p-2 rounded-xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
             aria-label="Video call"
           >
             <Video className="w-4 h-4" />
           </button>
           <button
             type="button"
-            className="p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+            className="p-2 rounded-xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
             aria-label="More options"
           >
             <MoreVertical className="w-4 h-4" />
@@ -407,17 +427,11 @@ export function ChatWindow({
       <ScrollArea className="flex-1 chat-scroll">
         <div className="px-3 py-4 flex flex-col gap-3 sm:px-5">
           <div className="flex items-center gap-3 my-2">
-            <div
-              className="flex-1 h-px"
-              style={{ background: "rgba(255,255,255,0.08)" }}
-            />
-            <span className="text-xs text-muted-foreground font-medium px-2">
+            <div className="flex-1 h-px" style={{ background: "#2a2a2a" }} />
+            <span className="text-xs text-gray-600 font-medium px-2">
               Today
             </span>
-            <div
-              className="flex-1 h-px"
-              style={{ background: "rgba(255,255,255,0.08)" }}
-            />
+            <div className="flex-1 h-px" style={{ background: "#2a2a2a" }} />
           </div>
 
           <AnimatePresence initial={false}>
@@ -456,13 +470,12 @@ export function ChatWindow({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.85, y: 4 }}
                         transition={{ duration: 0.12 }}
-                        className={`flex items-center gap-0.5 px-2 py-1 rounded-full self-${
+                        className={`flex items-center gap-0.5 px-2 py-1 rounded-full shadow-md self-${
                           msg.isOutgoing ? "end" : "start"
                         }`}
                         style={{
-                          background: "rgba(0,0,0,0.82)",
-                          backdropFilter: "blur(16px)",
-                          border: "1px solid rgba(255,255,255,0.12)",
+                          background: "#1e1e1e",
+                          border: "1px solid #333",
                         }}
                         data-ocid="chat.popover"
                       >
@@ -471,7 +484,7 @@ export function ChatWindow({
                             key={emoji}
                             type="button"
                             onClick={() => onReactToMessage?.(msg.id, emoji)}
-                            className="text-base w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/15 transition-colors"
+                            className="text-base w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-700 transition-colors"
                           >
                             {emoji}
                           </button>
@@ -492,7 +505,7 @@ export function ChatWindow({
                     {msg.type === "voice" ? (
                       <VoiceBubble msg={msg} isOutgoing={msg.isOutgoing} />
                     ) : msg.type === "file" ? (
-                      <FileBubble msg={msg} />
+                      <FileBubble msg={msg} isOutgoing={msg.isOutgoing} />
                     ) : (
                       <p className="text-sm leading-relaxed break-words">
                         {msg.text}
@@ -506,11 +519,12 @@ export function ChatWindow({
                       }`}
                     >
                       <span
-                        className={`text-[10px] ${
-                          msg.isOutgoing
-                            ? "text-white/60"
-                            : "text-muted-foreground"
-                        }`}
+                        className="text-[10px]"
+                        style={{
+                          color: msg.isOutgoing
+                            ? "rgba(255,255,255,0.7)"
+                            : "#6b7280",
+                        }}
                       >
                         {msg.timestamp}
                       </span>
@@ -522,7 +536,10 @@ export function ChatWindow({
                               style={{ color: "oklch(0.85 0.18 90)" }}
                             />
                           ) : (
-                            <Check className="w-3.5 h-3.5 text-white/40" />
+                            <Check
+                              className="w-3.5 h-3.5"
+                              style={{ color: "rgba(255,255,255,0.5)" }}
+                            />
                           )}
                         </span>
                       )}
@@ -544,15 +561,15 @@ export function ChatWindow({
                           className="flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs transition-all"
                           style={{
                             background: r.reactedByMe
-                              ? "oklch(0.65 0.25 240 / 0.2)"
-                              : "rgba(255,255,255,0.08)",
+                              ? "rgba(59,130,246,0.2)"
+                              : "#1e1e1e",
                             border: r.reactedByMe
-                              ? "1px solid oklch(0.65 0.25 240 / 0.5)"
-                              : "1px solid rgba(255,255,255,0.12)",
+                              ? "1px solid rgba(59,130,246,0.4)"
+                              : "1px solid #333",
                           }}
                         >
                           <span>{r.emoji}</span>
-                          <span className="text-[10px] text-white/70">
+                          <span className="text-[10px] text-gray-400">
                             {r.count}
                           </span>
                         </button>
@@ -579,12 +596,7 @@ export function ChatWindow({
       {/* Composer */}
       <div
         className="flex items-center gap-1.5 px-3 py-3 flex-shrink-0 sm:gap-2 sm:px-4"
-        style={{
-          background: "rgba(255,255,255,0.03)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          borderTop: "1px solid rgba(255,255,255,0.07)",
-        }}
+        style={{ background: "#111", borderTop: "1px solid #2a2a2a" }}
       >
         {isRecording ? (
           <>
@@ -597,7 +609,7 @@ export function ChatWindow({
             <button
               type="button"
               onClick={cancelRecording}
-              className="p-2 rounded-xl text-muted-foreground hover:bg-white/10 transition-colors flex-shrink-0"
+              className="p-2 rounded-xl text-gray-500 hover:bg-gray-800 transition-colors flex-shrink-0"
               aria-label="Cancel recording"
               data-ocid="chat.cancel_button"
             >
@@ -610,7 +622,7 @@ export function ChatWindow({
               className="rounded-xl w-10 h-10 flex-shrink-0"
               style={{
                 background:
-                  "linear-gradient(135deg, oklch(0.55 0.25 25), oklch(0.50 0.27 15))",
+                  "linear-gradient(135deg, oklch(0.52 0.24 25), oklch(0.48 0.26 15))",
                 border: "none",
                 color: "white",
               }}
@@ -625,7 +637,7 @@ export function ChatWindow({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex p-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-white/10 transition-colors flex-shrink-0"
+              className="flex p-2 rounded-xl text-gray-500 hover:text-primary hover:bg-gray-800 transition-colors flex-shrink-0"
               aria-label="Attach file"
               data-ocid="chat.upload_button"
             >
@@ -645,10 +657,10 @@ export function ChatWindow({
                 type="button"
                 size="icon"
                 onClick={handleSend}
-                className="rounded-xl w-10 h-10 flex-shrink-0 shadow-neon-btn"
+                className="rounded-xl w-10 h-10 flex-shrink-0"
                 style={{
                   background:
-                    "linear-gradient(135deg, oklch(0.65 0.25 240), oklch(0.60 0.27 250))",
+                    "linear-gradient(135deg, oklch(0.52 0.22 240), oklch(0.48 0.24 250))",
                   border: "none",
                   color: "white",
                 }}
@@ -660,10 +672,10 @@ export function ChatWindow({
               <button
                 type="button"
                 onClick={startRecording}
-                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-white/10"
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all hover:bg-gray-800"
                 style={{
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "oklch(0.65 0.25 240)",
+                  border: "1px solid #333",
+                  color: "oklch(0.52 0.22 240)",
                 }}
                 aria-label="Record voice message"
                 data-ocid="chat.secondary_button"

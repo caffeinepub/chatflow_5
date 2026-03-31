@@ -31,19 +31,14 @@ export function IconRail({ activeTab, onTabChange, username }: IconRailProps) {
     <TooltipProvider delayDuration={300}>
       <div
         className="hidden md:flex flex-col items-center w-14 py-4 gap-2 flex-shrink-0"
-        style={{
-          background: "rgba(255,255,255,0.03)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
-          borderRight: "1px solid rgba(255,255,255,0.07)",
-        }}
+        style={{ background: "#0a0a0a", borderRight: "1px solid #222" }}
       >
         {/* Logo */}
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.65 0.25 240), oklch(0.55 0.28 250))",
+              "linear-gradient(135deg, oklch(0.52 0.22 240), oklch(0.48 0.24 250))",
           }}
         >
           <MessageCircle className="w-4 h-4 text-white" />
@@ -60,15 +55,15 @@ export function IconRail({ activeTab, onTabChange, username }: IconRailProps) {
                   className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
                     activeTab === tab
                       ? "text-white neon-glow-sm"
-                      : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                      : "text-gray-500 hover:text-gray-300"
                   }`}
                   style={
                     activeTab === tab
                       ? {
                           background:
-                            "linear-gradient(135deg, oklch(0.65 0.25 240 / 0.8), oklch(0.55 0.28 250 / 0.8))",
+                            "linear-gradient(135deg, oklch(0.52 0.22 240), oklch(0.48 0.24 250))",
                         }
-                      : {}
+                      : { background: "transparent" }
                   }
                   data-ocid={`nav.${tab}.tab`}
                 >
@@ -77,7 +72,7 @@ export function IconRail({ activeTab, onTabChange, username }: IconRailProps) {
               </TooltipTrigger>
               <TooltipContent
                 side="right"
-                className="glass-card text-foreground border-white/10"
+                className="bg-gray-800 border border-gray-600 text-gray-100 shadow-md"
               >
                 <p>{label}</p>
               </TooltipContent>
@@ -91,7 +86,7 @@ export function IconRail({ activeTab, onTabChange, username }: IconRailProps) {
             className="font-semibold text-xs text-white"
             style={{
               background:
-                "linear-gradient(135deg, oklch(0.65 0.25 240 / 0.5), oklch(0.55 0.28 250 / 0.5))",
+                "linear-gradient(135deg, oklch(0.52 0.22 240), oklch(0.48 0.24 250))",
             }}
           >
             {initials}

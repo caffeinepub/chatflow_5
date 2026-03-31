@@ -7,19 +7,6 @@ export interface None {
     __kind__: "None";
 }
 export type Option<T> = Some<T> | None;
-export type PasswordHash = string;
-export type Time = bigint;
-export interface Message {
-    text: string;
-    senderUsername: string;
-    timestamp: Time;
-}
-export interface ConversationSummary {
-    lastMessageTime: Time;
-    otherUsername: string;
-    lastMessage: string;
-    unreadCount: bigint;
-}
 export type AuthResult = {
     __kind__: "ok";
     ok: null;
@@ -27,26 +14,13 @@ export type AuthResult = {
     __kind__: "error";
     error: string;
 };
-export interface UserProfile {
-    username: string;
-}
-export enum UserRole {
-    admin = "admin",
-    user = "user",
-    guest = "guest"
-}
 export interface backendInterface {
     _initializeAccessControlWithSecret(secret: string): Promise<void>;
-    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    registerUser(username: string, displayName: string): Promise<{__kind__: "ok"; ok: null} | {__kind__: "err"; err: string}>;
     findUsersByPrefix(prefix: string): Promise<Array<string>>;
-    getCallerUserProfile(): Promise<UserProfile | null>;
-    getCallerUserRole(): Promise<UserRole>;
-    getMessagesInConversation(user1: string, user2: string): Promise<Array<Message>>;
-    getUserProfile(user: Principal): Promise<UserProfile | null>;
-    isCallerAdmin(): Promise<boolean>;
-    listConversationsForUser(username: string): Promise<Array<ConversationSummary>>;
-    registerUser(username: string, passwordHash: PasswordHash): Promise<AuthResult>;
-    saveCallerUserProfile(profile: UserProfile): Promise<void>;
-    sendMessage(sender: string, recipient: string, text: string): Promise<AuthResult>;
+    addContact(callerUsername: string, targetUsername: string): Promise<{__kind__: "ok"; ok: null} | {__kind__: "err"; err: string}>;
+    listConversationsForUser(username: string): Promise<Array<{otherUsername: string; lastMessage: string; lastMessageTime: bigint; unreadCount: bigint}>>;
+    sendMessage(sender: string, recipient: string, text: string): Promise<{__kind__: "ok"; ok: null} | {__kind__: "err"; err: string}>;
+    getMessagesInConversation(user1: string, user2: string): Promise<Array<{text: string; senderUsername: string; timestamp: bigint}>>;
     markConversationRead(username: string, otherUsername: string): Promise<void>;
 }

@@ -1,11 +1,12 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, MessageSquare, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   contacts as initialContacts,
   messages as initialMessages,
 } from "../data/mockData";
+import { useActor } from "../hooks/useActor";
 import type { ActiveTab, Contact, Group, Message } from "../types/chat";
 import { ChatList } from "./ChatList";
 import { ChatWindow } from "./ChatWindow";
@@ -21,13 +22,45 @@ interface ChatLayoutProps {
 type MobileView = "list" | "chat";
 
 const AVATAR_COLORS = [
-  "oklch(0.55 0.22 230)",
-  "oklch(0.55 0.22 280)",
-  "oklch(0.55 0.22 160)",
-  "oklch(0.55 0.22 30)",
-  "oklch(0.55 0.22 320)",
-  "oklch(0.55 0.22 60)",
+  "oklch(0.52 0.22 230)",
+  "oklch(0.52 0.22 280)",
+  "oklch(0.52 0.22 160)",
+  "oklch(0.52 0.22 30)",
+  "oklch(0.52 0.22 320)",
+  "oklch(0.52 0.22 60)",
 ];
+
+const CONTACTS_KEY = "chatflow_contacts";
+
+function getSavedContacts(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(CONTACTS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveContactLocally(uname: string) {
+  const existing = getSavedContacts();
+  if (!existing.includes(uname)) {
+    existing.push(uname);
+    try {
+      localStorage.setItem(CONTACTS_KEY, JSON.stringify(existing));
+    } catch {}
+  }
+}
+
+function bigintToTimeString(ns: bigint): string {
+  try {
+    const ms = Number(ns / 1_000_000n);
+    return new Date(ms).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
 
 export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("chats");
@@ -35,9 +68,66 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
-    "1",
+    null,
   );
   const [mobileView, setMobileView] = useState<MobileView>("list");
+  const { actor } = useActor();
+
+  useEffect(() => {
+    if (!actor || !username) return;
+    actor.registerUser(username, username).catch(() => {});
+  }, [actor, username]);
+
+  useEffect(() => {
+    if (!actor || !username) return;
+
+    async function loadContacts() {
+      try {
+        if (!actor) return;
+        const conversations = await actor.listConversationsForUser(username);
+        const backendUsernames = conversations.map((c) => c.otherUsername);
+        const localUsernames = getSavedContacts();
+        const allUsernames = Array.from(
+          new Set([...backendUsernames, ...localUsernames]),
+        );
+
+        setContacts((prev) => {
+          const existingNames = new Set(prev.map((c) => c.name.toLowerCase()));
+          const newContacts: Contact[] = [];
+          let colorIdx = prev.length;
+
+          for (const uname of allUsernames) {
+            if (existingNames.has(uname.toLowerCase())) continue;
+            const initials = uname.slice(0, 2).toUpperCase();
+            const color = AVATAR_COLORS[colorIdx % AVATAR_COLORS.length];
+            colorIdx++;
+            const conv = conversations.find((c) => c.otherUsername === uname);
+            newContacts.push({
+              id: `user-${uname}`,
+              name: uname,
+              initials,
+              avatarColor: color,
+              lastMessage: conv?.lastMessage ?? "",
+              lastMessageTime: conv?.lastMessageTime
+                ? bigintToTimeString(conv.lastMessageTime)
+                : "",
+              unreadCount: conv ? Number(conv.unreadCount) : 0,
+              isOnline: false,
+              bio: "",
+              mediaThumbColors: [],
+            });
+          }
+
+          return newContacts.length > 0 ? [...newContacts, ...prev] : prev;
+        });
+      } catch {
+        // silently fail
+      }
+    }
+
+    loadContacts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actor, username]);
 
   const isGroup = selectedContactId?.startsWith("group-") ?? false;
   const selectedContact = isGroup
@@ -74,24 +164,34 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
     setActiveTab("chats");
   }
 
-  function handleAddUser(newUsername: string) {
-    const color = AVATAR_COLORS[contacts.length % AVATAR_COLORS.length];
-    const newContact: Contact = {
-      id: `user-${Date.now()}`,
-      name: newUsername,
-      initials: newUsername.slice(0, 2).toUpperCase(),
-      avatarColor: color,
-      lastMessage: "",
-      lastMessageTime: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      unreadCount: 0,
-      isOnline: false,
-      bio: "",
-      mediaThumbColors: [],
-    };
-    setContacts((prev) => [newContact, ...prev]);
+  function handleStartChat(newUsername: string) {
+    const contactId = `user-${newUsername}`;
+
+    setContacts((prev) => {
+      if (prev.some((c) => c.id === contactId)) return prev;
+      const color = AVATAR_COLORS[prev.length % AVATAR_COLORS.length];
+      const newContact: Contact = {
+        id: contactId,
+        name: newUsername,
+        initials: newUsername.slice(0, 2).toUpperCase(),
+        avatarColor: color,
+        lastMessage: "",
+        lastMessageTime: "",
+        unreadCount: 0,
+        isOnline: false,
+        bio: "",
+        mediaThumbColors: [],
+      };
+      return [newContact, ...prev];
+    });
+
+    saveContactLocally(newUsername);
+
+    if (actor) {
+      (actor as any).addContact?.(username, newUsername)?.catch?.(() => {});
+    }
+
+    handleSelectContact(contactId);
   }
 
   function handleSendMessage(text: string) {
@@ -243,7 +343,7 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
       id: `group-${Date.now()}`,
       name,
       initials,
-      avatarColor: "oklch(0.6 0.22 290)",
+      avatarColor: "oklch(0.52 0.22 290)",
       members: memberIds,
       lastMessage: "Group created",
       lastMessageTime: new Date().toLocaleTimeString([], {
@@ -275,36 +375,23 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
   const showSettings = activeTab === "settings";
 
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden md:items-center md:justify-center md:p-4">
-      {/* Radial neon glow */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 60% at 50% 50%, oklch(0.65 0.25 240 / 0.07) 0%, transparent 65%)",
-        }}
-      />
-
+    <div className="h-screen flex flex-col relative overflow-hidden bg-black md:items-center md:justify-center md:p-4">
       {/* Main app container */}
       <div
-        className="w-full flex flex-col flex-1 overflow-hidden md:rounded-2xl md:max-w-6xl md:animate-neon-pulse"
+        className="w-full flex flex-col flex-1 overflow-hidden md:rounded-2xl md:max-w-6xl"
         style={{
           height: "100%",
-          background: "rgba(255,255,255,0.04)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow:
-            "0 0 80px oklch(0.65 0.25 240 / 0.15), 0 8px 48px rgba(0,0,0,0.7)",
+          background: "#111111",
+          border: "1px solid #333",
+          boxShadow: "0 4px 48px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.4)",
         }}
       >
         {/* App header */}
         <div
           className="flex items-center gap-2 px-3 py-2.5 flex-shrink-0 sm:gap-4 sm:px-5 sm:py-3"
           style={{
-            background: "rgba(255,255,255,0.04)",
-            backdropFilter: "blur(16px)",
-            borderBottom: "1px solid rgba(255,255,255,0.07)",
+            background: "#0d0d0d",
+            borderBottom: "1px solid #2a2a2a",
           }}
         >
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -312,30 +399,30 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
               className="w-7 h-7 rounded-lg flex items-center justify-center"
               style={{
                 background:
-                  "linear-gradient(135deg, oklch(0.65 0.25 240), oklch(0.55 0.28 250))",
+                  "linear-gradient(135deg, oklch(0.52 0.22 240), oklch(0.48 0.24 250))",
               }}
             >
               <MessageSquare className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-foreground text-sm tracking-tight">
+            <span className="font-bold text-white text-sm tracking-tight">
               ChatFlow
             </span>
           </div>
 
           <div className="flex-1 text-center min-w-0">
-            <span className="text-sm font-semibold text-muted-foreground truncate block">
+            <span className="text-sm font-semibold text-gray-400 truncate block">
               {showSettings
                 ? "Profile Settings"
                 : windowContact
                   ? windowContact.name
-                  : "Chat Window"}
+                  : "Select a chat"}
             </span>
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0 sm:gap-2">
             <button
               type="button"
-              className="hidden sm:flex p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+              className="hidden sm:flex p-2 rounded-xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
               aria-label="Search"
             >
               <Search className="w-4 h-4" />
@@ -343,7 +430,7 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
             <div className="relative hidden sm:block">
               <button
                 type="button"
-                className="p-2 rounded-xl text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+                className="p-2 rounded-xl text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
                 aria-label="Notifications"
               >
                 <Bell className="w-4 h-4" />
@@ -356,26 +443,26 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
             </div>
             <div
               className="flex items-center gap-1.5 pl-2 sm:gap-2"
-              style={{ borderLeft: "1px solid rgba(255,255,255,0.1)" }}
+              style={{ borderLeft: "1px solid #333" }}
             >
               <Avatar className="w-7 h-7">
                 <AvatarFallback
                   className="font-semibold text-xs text-white"
                   style={{
                     background:
-                      "linear-gradient(135deg, oklch(0.65 0.25 240 / 0.6), oklch(0.55 0.28 250 / 0.6))",
+                      "linear-gradient(135deg, oklch(0.52 0.22 240), oklch(0.48 0.24 250))",
                   }}
                 >
                   {username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-xs font-semibold text-foreground hidden sm:block">
+              <span className="text-xs font-semibold text-gray-300 hidden sm:block">
                 {username}
               </span>
               <button
                 type="button"
                 onClick={onLogout}
-                className="p-1.5 rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground transition-colors"
+                className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-800 hover:text-gray-300 transition-colors"
                 title="Logout"
                 data-ocid="nav.button"
               >
@@ -396,7 +483,7 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
             />
           </div>
 
-          {/* Chat List — always visible on desktop; hidden on mobile when in chat view */}
+          {/* Chat List */}
           <div
             className={`${
               mobileView === "list" && !showSettings ? "flex" : "hidden"
@@ -409,11 +496,11 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
               onSelectContact={handleSelectContact}
               onCreateGroup={handleCreateGroup}
               currentUsername={username}
-              onAddUser={handleAddUser}
+              onStartChat={handleStartChat}
             />
           </div>
 
-          {/* Right panel: Settings or Chat Window */}
+          {/* Right panel */}
           {showSettings ? (
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <ProfileSettings username={username} />
@@ -446,7 +533,7 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
       </div>
 
       {/* Footer */}
-      <p className="hidden md:block absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground whitespace-nowrap">
+      <p className="hidden md:block absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-gray-600 whitespace-nowrap">
         © {new Date().getFullYear()}. Built with ❤️ using{" "}
         <a
           href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
