@@ -4,35 +4,47 @@ import { ChatLayout } from "./components/ChatLayout";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LoginPage } from "./components/LoginPage";
 
-const SESSION_KEY = "chatflow_session";
+const SESSION_KEY = "chatflow_session_v2";
+
+interface Session {
+  username: string;
+  displayName: string;
+}
+
+function readSession(): Session | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Session;
+    if (parsed.username && parsed.displayName) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 function AppInner() {
-  const [username, setUsername] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(SESSION_KEY) || null;
-    } catch {
-      return null;
-    }
-  });
+  const [session, setSession] = useState<Session | null>(() => readSession());
 
-  function handleLogin(name: string) {
+  function handleLogin(username: string, displayName: string) {
+    const s: Session = { username, displayName };
     try {
-      localStorage.setItem(SESSION_KEY, name);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(s));
     } catch {}
-    setUsername(name);
+    setSession(s);
   }
 
   function handleLogout() {
     try {
       localStorage.removeItem(SESSION_KEY);
     } catch {}
-    setUsername(null);
+    setSession(null);
   }
 
   return (
     <>
-      {username ? (
-        <ChatLayout username={username} onLogout={handleLogout} />
+      {session ? (
+        <ChatLayout username={session.username} onLogout={handleLogout} />
       ) : (
         <LoginPage onLogin={handleLogin} />
       )}

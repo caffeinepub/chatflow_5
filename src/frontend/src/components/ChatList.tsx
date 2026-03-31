@@ -21,6 +21,15 @@ type ListItem =
   | { kind: "contact"; data: Contact }
   | { kind: "group"; data: Group };
 
+interface UserEntry {
+  username: string;
+  displayName: string;
+}
+
+async function fetchAllUsers(actor: any): Promise<UserEntry[]> {
+  return actor.getAllUsers() as Promise<UserEntry[]>;
+}
+
 export function ChatList({
   contacts,
   groups,
@@ -31,76 +40,61 @@ export function ChatList({
   onStartChat,
 }: ChatListProps) {
   const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
-  const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [allUsers, setAllUsers] = useState<UserEntry[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const { actor } = useActor();
+  const loadedRef = useRef(false);
 
+  // Load all registered users on mount and when actor becomes available
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!actor || loadedRef.current) return;
+    loadedRef.current = true;
+    setIsLoadingUsers(true);
+    fetchAllUsers(actor)
+      .then((users) => setAllUsers(users))
+      .catch(() => setAllUsers([]))
+      .finally(() => setIsLoadingUsers(false));
+  }, [actor]);
 
-    if (!search.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        if (!actor) {
-          const raw = localStorage.getItem("chatflow_accounts");
-          if (!raw) {
-            setSearchResults([]);
-            setIsSearching(false);
-            return;
-          }
-          const accounts: Record<string, string> = JSON.parse(raw);
-          const q = search.toLowerCase();
-          const existingNames = new Set([
-            currentUsername.toLowerCase(),
-            ...contacts.map((c) => c.name.toLowerCase()),
-          ]);
-          const results = Object.keys(accounts).filter(
-            (u) =>
-              u !== currentUsername &&
-              !existingNames.has(u.toLowerCase()) &&
-              u.toLowerCase().includes(q),
-          );
-          setSearchResults(results);
-        } else {
-          const results = await actor.findUsersByPrefix(search.trim());
-          const filtered = results.filter(
-            (u) => u.toLowerCase() !== currentUsername.toLowerCase(),
-          );
-          setSearchResults(filtered);
-        }
-      } catch {
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [search, actor, currentUsername, contacts]);
+  // Refresh user list periodically so newly registered users appear
+  useEffect(() => {
+    if (!actor) return;
+    const interval = setInterval(() => {
+      fetchAllUsers(actor)
+        .then((users) => setAllUsers(users))
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [actor]);
 
   const allItems: ListItem[] = [
     ...groups.map((g): ListItem => ({ kind: "group", data: g })),
     ...contacts.map((c): ListItem => ({ kind: "contact", data: c })),
   ];
 
-  const filtered = allItems.filter((item) => {
-    if (!search.trim() || searchResults.length > 0) return !search.trim();
+  const filteredConversations = allItems.filter((item) => {
+    if (!search.trim()) return true;
     const name = item.data.name.toLowerCase();
     const msg = item.data.lastMessage.toLowerCase();
     const q = search.toLowerCase();
     return name.includes(q) || msg.includes(q);
   });
 
+  // People section: all users excluding current user, filtered by search
+  const peopleResults = allUsers.filter((u) => {
+    if (u.username.toLowerCase() === currentUsername.toLowerCase())
+      return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      u.displayName.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q)
+    );
+  });
+
+  const showPeople = searchFocused || search.trim().length > 0;
   const existingContactNames = new Set(
     contacts.map((c) => c.name.toLowerCase()),
   );
@@ -135,13 +129,15 @@ export function ChatList({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type="text"
-              placeholder="Search or find people…"
+              placeholder="Search people\u2026"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
               className="w-full pl-9 pr-8 py-2 text-sm rounded-xl glass-input h-9"
               data-ocid="chat.search_input"
             />
-            {isSearching && (
+            {isLoadingUsers && (
               <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-gray-500" />
             )}
           </div>
@@ -150,19 +146,19 @@ export function ChatList({
         {/* List */}
         <ScrollArea className="flex-1 chat-scroll">
           <div className="py-1">
-            {filtered.length === 0 &&
-              searchResults.length === 0 &&
-              !isSearching && (
+            {/* Conversations */}
+            {!search.trim() &&
+              filteredConversations.length === 0 &&
+              !showPeople && (
                 <div
-                  className="text-center text-sm text-gray-500 py-8"
+                  className="text-center text-sm text-gray-500 py-6 px-4"
                   data-ocid="chat.empty_state"
                 >
-                  {search.trim()
-                    ? "No users found."
-                    : "No chats yet. Search for a user to start chatting."}
+                  No chats yet. Tap a person below to start chatting.
                 </div>
               )}
-            {filtered.map((item, idx) => {
+
+            {filteredConversations.map((item, idx) => {
               const id = item.data.id;
               const isSelected = selectedContactId === id;
               const isGroup = item.kind === "group";
@@ -195,7 +191,6 @@ export function ChatList({
                   }}
                   data-ocid={`chat.item.${idx + 1}`}
                 >
-                  {/* Avatar */}
                   <div className="relative flex-shrink-0">
                     <Avatar className="w-11 h-11">
                       {!isGroup && contact?.avatarUrl && (
@@ -241,7 +236,6 @@ export function ChatList({
                     )}
                   </div>
 
-                  {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-white truncate">
@@ -272,32 +266,48 @@ export function ChatList({
               );
             })}
 
-            {/* People section */}
-            {searchResults.length > 0 && (
-              <div className="mt-2">
-                <div className="px-4 py-1.5">
+            {/* People section \u2014 shown when search bar is focused or has text */}
+            {showPeople && (
+              <div className="mt-1">
+                <div className="px-4 py-2 flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
                     People
                   </span>
+                  {isLoadingUsers && (
+                    <Loader2 className="w-3 h-3 animate-spin text-gray-600" />
+                  )}
                 </div>
-                {searchResults.map((uname, idx) => {
+
+                {peopleResults.length === 0 && !isLoadingUsers && (
+                  <div
+                    className="text-center text-xs text-gray-600 py-4 px-4"
+                    data-ocid="people.empty_state"
+                  >
+                    {search.trim()
+                      ? `No users matching "${search}"`
+                      : "No other users registered yet."}
+                  </div>
+                )}
+
+                {peopleResults.map((user, idx) => {
                   const alreadyAdded = existingContactNames.has(
-                    uname.toLowerCase(),
+                    user.displayName.toLowerCase(),
                   );
                   return (
                     <button
-                      key={uname}
+                      key={user.username}
                       type="button"
                       onClick={() => {
-                        onStartChat(uname);
+                        onStartChat(user.username);
                         setSearch("");
+                        setSearchFocused(false);
                       }}
                       className="w-full flex items-center gap-3 px-4 py-3 transition-all duration-150 text-left"
                       style={{ background: "transparent" }}
                       onMouseEnter={(e) => {
                         (
                           e.currentTarget as HTMLButtonElement
-                        ).style.background = "rgba(255,255,255,0.04)";
+                        ).style.background = "rgba(255,255,255,0.05)";
                       }}
                       onMouseLeave={(e) => {
                         (
@@ -311,17 +321,15 @@ export function ChatList({
                           className="text-white text-sm font-semibold"
                           style={{ background: "oklch(0.52 0.18 200)" }}
                         >
-                          {uname.slice(0, 2).toUpperCase()}
+                          {user.displayName.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-semibold text-white truncate block">
-                          {uname}
+                          {user.displayName}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {alreadyAdded
-                            ? "In your contacts"
-                            : "Tap to start chatting"}
+                          @{user.username}
                         </span>
                       </div>
                       <div
@@ -345,14 +353,85 @@ export function ChatList({
               </div>
             )}
 
-            {/* Loading state */}
-            {isSearching && search.trim() && (
-              <div
-                className="flex items-center justify-center gap-2 py-6 text-xs text-gray-500"
-                data-ocid="chat.loading_state"
-              >
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Searching users…
+            {/* Default view: show all registered users when not searching */}
+            {!showPeople && (
+              <div className="px-4 pt-2">
+                <div className="px-4 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                    All Users
+                  </span>
+                </div>
+
+                {isLoadingUsers && (
+                  <div
+                    className="flex items-center justify-center py-4"
+                    data-ocid="allusers.loading_state"
+                  >
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                  </div>
+                )}
+
+                {!isLoadingUsers &&
+                  allUsers.filter(
+                    (u) =>
+                      u.username.toLowerCase() !==
+                      currentUsername.toLowerCase(),
+                  ).length === 0 && (
+                    <div
+                      className="text-center text-xs text-gray-600 py-4"
+                      data-ocid="allusers.empty_state"
+                    >
+                      No other users registered yet.
+                    </div>
+                  )}
+
+                {allUsers
+                  .filter(
+                    (u) =>
+                      u.username.toLowerCase() !==
+                      currentUsername.toLowerCase(),
+                  )
+                  .map((user, idx) => (
+                    <button
+                      key={user.username}
+                      type="button"
+                      onClick={() => onStartChat(user.username)}
+                      className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg transition-all duration-150 text-left mb-0.5"
+                      style={{ background: "transparent" }}
+                      onMouseEnter={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "rgba(255,255,255,0.05)";
+                      }}
+                      onMouseLeave={(e) => {
+                        (
+                          e.currentTarget as HTMLButtonElement
+                        ).style.background = "transparent";
+                      }}
+                      data-ocid={`allusers.item.${idx + 1}`}
+                    >
+                      <Avatar className="w-9 h-9 flex-shrink-0">
+                        <AvatarFallback
+                          className="text-white text-xs font-semibold"
+                          style={{ background: "oklch(0.45 0.18 200)" }}
+                        >
+                          {user.displayName.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-white truncate block">
+                          {user.displayName}
+                        </span>
+                        <span className="text-[10px] text-gray-600">
+                          @{user.username}
+                        </span>
+                      </div>
+                      <MessageSquarePlus
+                        className="w-4 h-4 flex-shrink-0"
+                        style={{ color: "#444" }}
+                      />
+                    </button>
+                  ))}
               </div>
             )}
           </div>

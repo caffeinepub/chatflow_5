@@ -17,7 +17,6 @@ actor {
     unreadCount     : Nat;
   };
 
-  // All state is stored in plain stable arrays — no TrieMap
   var users        : [UserEntry]    = [];
   var contactEdges : [ContactEntry] = [];
   var allMessages  : [Message]      = [];
@@ -65,6 +64,12 @@ actor {
 
   // ── User search ────────────────────────────────────────────────────────
 
+  // Returns all users (username + displayName) for browsing
+  public query func getAllUsers() : async [{ username : Text; displayName : Text }] {
+    users
+  };
+
+  // Search by prefix/substring — returns empty array if query empty
   public query func findUsersByPrefix(prefix : Text) : async [Text] {
     let q = Text.toLowercase(prefix);
     if (Text.size(q) == 0) return [];

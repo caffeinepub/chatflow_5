@@ -17,6 +17,7 @@ export type AuthResult = {
 export interface backendInterface {
     _initializeAccessControlWithSecret(secret: string): Promise<void>;
     registerUser(username: string, displayName: string): Promise<{__kind__: "ok"; ok: null} | {__kind__: "err"; err: string}>;
+    getAllUsers(): Promise<Array<{username: string; displayName: string}>>;
     findUsersByPrefix(prefix: string): Promise<Array<string>>;
     addContact(callerUsername: string, targetUsername: string): Promise<{__kind__: "ok"; ok: null} | {__kind__: "err"; err: string}>;
     listConversationsForUser(username: string): Promise<Array<{otherUsername: string; lastMessage: string; lastMessageTime: bigint; unreadCount: bigint}>>;

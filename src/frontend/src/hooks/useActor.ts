@@ -34,9 +34,6 @@ export function useActor() {
     staleTime: Number.POSITIVE_INFINITY,
     // This will cause the actor to be recreated when the identity changes
     enabled: true,
-    // Limit retries and prevent uncaught actor init errors from crashing the app
-    retry: 1,
-    throwOnError: false,
   });
 
   // When the actor changes, invalidate dependent queries

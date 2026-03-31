@@ -14,7 +14,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { loadConfig } from "../config";
@@ -156,7 +155,6 @@ export function InternetIdentityProvider({
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
   const [loginError, setError] = useState<Error | undefined>(undefined);
-  const initializedRef = useRef(false);
 
   const setErrorMessage = useCallback((message: string) => {
     setStatus("loginError");
@@ -222,8 +220,6 @@ export function InternetIdentityProvider({
         setAuthClient(undefined);
         setStatus("idle");
         setError(undefined);
-        // Allow re-initialization after logout
-        initializedRef.current = false;
       })
       .catch((unknownError: unknown) => {
         setStatus("loginError");
@@ -236,17 +232,16 @@ export function InternetIdentityProvider({
   }, [authClient, setErrorMessage]);
 
   useEffect(() => {
-    // Prevent duplicate initialization when authClient state changes cause re-runs
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
     let cancelled = false;
     void (async () => {
       try {
         setStatus("initializing");
-        const existingClient = await createAuthClient(createOptions);
-        if (cancelled) return;
-        setAuthClient(existingClient);
+        let existingClient = authClient;
+        if (!existingClient) {
+          existingClient = await createAuthClient(createOptions);
+          if (cancelled) return;
+          setAuthClient(existingClient);
+        }
         const isAuthenticated = await existingClient.isAuthenticated();
         if (cancelled) return;
         if (isAuthenticated) {
@@ -254,23 +249,20 @@ export function InternetIdentityProvider({
           setIdentity(loadedIdentity);
         }
       } catch (unknownError) {
-        if (!cancelled) {
-          setStatus("loginError");
-          setError(
-            unknownError instanceof Error
-              ? unknownError
-              : new Error("Initialization failed"),
-          );
-        }
+        setStatus("loginError");
+        setError(
+          unknownError instanceof Error
+            ? unknownError
+            : new Error("Initialization failed"),
+        );
       } finally {
         if (!cancelled) setStatus("idle");
       }
     })();
     return () => {
       cancelled = true;
-      initializedRef.current = false;
     };
-  }, [createOptions]);
+  }, [createOptions, authClient]);
 
   const value = useMemo<ProviderValue>(
     () => ({

@@ -2,10 +2,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, MessageSquare, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  contacts as initialContacts,
-  messages as initialMessages,
-} from "../data/mockData";
 import { useActor } from "../hooks/useActor";
 import type { ActiveTab, Contact, Group, Message } from "../types/chat";
 import { ChatList } from "./ChatList";
@@ -64,8 +60,8 @@ function bigintToTimeString(ns: bigint): string {
 
 export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("chats");
-  const [contacts, setContacts] = useState<Contact[]>(initialContacts);
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     null,
@@ -129,6 +125,74 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actor, username]);
 
+  // Poll messages for active chat every 3 seconds
+  useEffect(() => {
+    if (!actor || !username || !selectedContactId) return;
+    if (!selectedContactId.startsWith("user-")) return;
+
+    const contactUsername = selectedContactId.replace(/^user-/, "");
+
+    async function pollMessages() {
+      try {
+        if (!actor) return;
+        const backendMsgs = await actor.getMessagesInConversation(
+          username,
+          contactUsername,
+        );
+        const converted: Message[] = backendMsgs.map((m, i) => ({
+          id: `backend-${m.timestamp}-${i}`,
+          contactId: selectedContactId as string,
+          text: m.text,
+          timestamp: bigintToTimeString(m.timestamp),
+          isOutgoing: m.senderUsername === username,
+          type: "text" as const,
+          readStatus: "read" as const,
+        }));
+        setMessages((prev) => [
+          ...prev.filter((m) => m.contactId !== selectedContactId),
+          ...converted,
+        ]);
+      } catch {
+        // silently fail
+      }
+    }
+
+    pollMessages();
+    const interval = setInterval(pollMessages, 3000);
+    return () => clearInterval(interval);
+  }, [actor, username, selectedContactId]);
+
+  // Poll conversations every 5 seconds to update lastMessage/unreadCount
+  useEffect(() => {
+    if (!actor || !username) return;
+
+    const interval = setInterval(async () => {
+      try {
+        if (!actor) return;
+        const conversations = await actor.listConversationsForUser(username);
+        setContacts((prev) =>
+          prev.map((c) => {
+            const conv = conversations.find(
+              (cv) => cv.otherUsername.toLowerCase() === c.name.toLowerCase(),
+            );
+            if (!conv) return c;
+            return {
+              ...c,
+              lastMessage: conv.lastMessage,
+              lastMessageTime: bigintToTimeString(conv.lastMessageTime),
+              unreadCount:
+                c.id === selectedContactId ? 0 : Number(conv.unreadCount),
+            };
+          }),
+        );
+      } catch {
+        // silently fail
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [actor, username, selectedContactId]);
+
   const isGroup = selectedContactId?.startsWith("group-") ?? false;
   const selectedContact = isGroup
     ? null
@@ -162,6 +226,29 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
     }
     setMobileView("chat");
     setActiveTab("chats");
+
+    // Load messages from backend when selecting a real user contact
+    if (!id.startsWith("group-") && actor) {
+      const contactUsername = id.replace(/^user-/, "");
+      actor
+        .getMessagesInConversation(username, contactUsername)
+        .then((backendMsgs) => {
+          const converted: Message[] = backendMsgs.map((m, i) => ({
+            id: `backend-${m.timestamp}-${i}`,
+            contactId: id,
+            text: m.text,
+            timestamp: bigintToTimeString(m.timestamp),
+            isOutgoing: m.senderUsername === username,
+            type: "text" as const,
+            readStatus: "read" as const,
+          }));
+          setMessages((prev) => [
+            ...prev.filter((msg) => msg.contactId !== id),
+            ...converted,
+          ]);
+        })
+        .catch(() => {});
+    }
   }
 
   function handleStartChat(newUsername: string) {
@@ -225,6 +312,11 @@ export function ChatLayout({ username, onLogout }: ChatLayoutProps) {
             : c,
         ),
       );
+      // Persist to backend (fire and forget)
+      if (actor) {
+        const recipientUsername = selectedContactId.replace(/^user-/, "");
+        actor.sendMessage(username, recipientUsername, text).catch(() => {});
+      }
     }
   }
 
