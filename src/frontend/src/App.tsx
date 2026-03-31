@@ -1,11 +1,12 @@
 import { Toaster } from "@/components/ui/sonner";
 import { useState } from "react";
 import { ChatLayout } from "./components/ChatLayout";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LoginPage } from "./components/LoginPage";
 
 const SESSION_KEY = "chatflow_session";
 
-export default function App() {
+function AppInner() {
   const [username, setUsername] = useState<string | null>(() => {
     try {
       return localStorage.getItem(SESSION_KEY) || null;
@@ -37,5 +38,13 @@ export default function App() {
       )}
       <Toaster />
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
   );
 }
